@@ -66,7 +66,6 @@ function _M.init(config)
 
     setmetatable(config, {__index={
         shm_name              = "assetry",
-        allowed_origins       = getenv_table('ASSETRY_ALLOWED_ORIGINS',        {}),
         max_width             = getenv_number('ASSETRY_MAX_WIDTH',             4096),
         max_height            = getenv_number('ASSETRY_MAX_HEIGHT',            4096),
         max_operations        = getenv_number('ASSETRY_MAX_OPERATIONS',        10),
@@ -106,26 +105,6 @@ function _M.init(config)
     _M.http = http:new()
 end
 
-local function validate_allowed_origin(image_url)
-	  local allowed_origins = _M.config.allowed_origins
-
-		if not next(allowed_origins) then
-	      return true
-		end
-
-    local u = url.parse(image_url)
-
-    if not u or not u.host then
-        return nil, 'failed to parse image url'
-    end
-
-    if not allowed_origins[u.host] then
-        return nil, 'image host ' .. u.host .. ' is not included in allowed origins'
-    end
-
-    return true
-end
-
 function _M.access_phase()
     local url_params = ngx.var.assetry_params
     local image_url  = ngx.var.assetry_url
@@ -142,13 +121,6 @@ function _M.access_phase()
     if not image_url or image_url == '' then
         log_error('missing image url')
         return ngx.exit(400)
-    end
-
-    local ok, err = validate_allowed_origin(image_url)
-
-    if not ok then
-        log_warn('error validating origin: ', err)
-        return ngx.exit(403)
     end
 
     local parsed, err = params.parse(url_params)

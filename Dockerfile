@@ -2,7 +2,7 @@ FROM openresty/openresty:alpine
 
 ENV LIBVIPS_VERSION 8.17.3
 
-WORKDIR /tmp
+WORKDIR /data
 EXPOSE 8080
 
 RUN apk add --no-cache --virtual build-deps gcc g++ make build-base curl perl \

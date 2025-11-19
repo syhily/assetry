@@ -25,7 +25,6 @@ local KEY_HTTP_SERVER_ERROR = 'upstream_http_server_error'
 local NUM_AVG_SAMPLES = 1000.0
 
 function _M.init(config)
-
     if not config.shm_name then
         return
     end

@@ -6,6 +6,7 @@
         "dylib",
         "dynamiclib",
         "gaussblur",
+        "getenv",
         "ginit",
         "golgote",
         "gshutdown",
@@ -23,6 +24,7 @@
         "resty",
         "suffs",
         "vectorv",
+        "webp",
         "wextra"
     ]
 }

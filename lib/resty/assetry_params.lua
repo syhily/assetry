@@ -262,7 +262,6 @@ function _M.init(formats, opts)
         end
 
         for n, line in l_pairs(lines) do
-
             local name, operation = line:match('(.+)%s?:%s?(.+)')
 
             if not name or not operation then

@@ -1,13 +1,13 @@
 FROM openresty/openresty:alpine
 
-ENV LIBVIPS_VERSION 8.14.2
+ENV LIBVIPS_VERSION 8.17.3
 
 WORKDIR /tmp
 EXPOSE 8080
 
 RUN apk add --no-cache --virtual build-deps gcc g++ make build-base curl perl \
     && \
-    apk add --no-cache vips vips-dev
+    apk add --no-cache vips vips-dev ca-certificates
 
 RUN /usr/local/openresty/bin/opm install pintsized/lua-resty-http \
     && \

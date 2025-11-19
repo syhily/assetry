@@ -5,6 +5,7 @@ local params = require "resty.assetry_params"
 local pretty = require "resty.prettycjson"
 local url    = require "net.url"
 local util   = require "resty.assetry_util"
+local upload = require "resty.assetry_upload"
 
 local ngx_ctx         = ngx.ctx
 local shared          = ngx.shared
@@ -74,7 +75,8 @@ function _M.init(config)
         default_format        = getenv_string('ASSETRY_DEFAULT_FORMAT',        "avif"),
         max_concurrency       = getenv_number('ASSETRY_MAX_CONCURRENCY',       24),
         named_operations_file = getenv_string('ASSETRY_NAMED_OPERATIONS_FILE', nil),
-        default_params        = getenv_string('ASSETRY_DEFAULT_PARAMS',        '/resize/w=1024,h=1024,m=fit')
+        default_params        = getenv_string('ASSETRY_DEFAULT_PARAMS',        '/resize/w=1024,h=1024,m=fit'),
+        upload_api_key        = getenv_string('ASSETRY_UPLOAD_API_KEY',        nil)
     }})
 
     -- Store config
@@ -94,10 +96,11 @@ function _M.init(config)
 
     for key, value in pairs(supported_formats) do
     	formats = formats .. ", " .. key
-		end
+    end
 
-		util.log_info(formats)
+    util.log_info(formats)
     stats.init(config)
+    upload.init(config)
 
     -- HTTP Client
     _M.http = http:new()
@@ -222,6 +225,10 @@ function _M.status_page()
 
     ngx.say(pretty(service_stats, nil, "  "))
     return ngx.exit(200)
+end
+
+function _M.upload_handler()
+    upload.handle_upload()
 end
 
 return _M

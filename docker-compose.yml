@@ -1,0 +1,18 @@
+services:
+  assetry:
+    image: syhily/assetry
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
+    volumes:
+      - "./lib/resty/assetry.lua:/usr/local/openresty/site/lualib/resty/assetry.lua"
+      - "./lib/resty/assetry_http.lua:/usr/local/openresty/site/lualib/resty/assetry_http.lua"
+      - "./lib/resty/assetry_params.lua:/usr/local/openresty/site/lualib/resty/assetry_params.lua"
+      - "./lib/resty/assetry_stats.lua:/usr/local/openresty/site/lualib/resty/assetry_stats.lua"
+      - "./lib/resty/assetry_util.lua:/usr/local/openresty/site/lualib/resty/assetry_util.lua"
+      - "./lib/resty/assetry_vips.lua:/usr/local/openresty/site/lualib/resty/assetry_vips.lua"
+      - "./nginx.conf:/var/run/openresty-assetry/nginx.conf:ro"
+      - "./data:/data"

@@ -1,0 +1,28 @@
+{
+    "cSpell.words": [
+        "assetry",
+        "cdef",
+        "cjson",
+        "dylib",
+        "dynamiclib",
+        "gaussblur",
+        "ginit",
+        "golgote",
+        "gshutdown",
+        "keepalive",
+        "ldconfig",
+        "libvips",
+        "lrucache",
+        "luajit",
+        "lualib",
+        "maxage",
+        "metatype",
+        "neturl",
+        "prettycjson",
+        "resolv",
+        "resty",
+        "suffs",
+        "vectorv",
+        "wextra"
+    ]
+}

@@ -72,7 +72,7 @@ function _M.init(config)
         max_operations        = getenv_number('ASSETRY_MAX_OPERATIONS',        10),
         default_quality       = getenv_number('ASSETRY_DEFAULT_QUALITY',       90),
         default_strip         = getenv_boolean('ASSETRY_DEFAULT_STRIP',        true),
-        default_format        = getenv_string('ASSETRY_DEFAULT_FORMAT',        "avif"),
+        default_format        = getenv_string('ASSETRY_DEFAULT_FORMAT',        "webp"),
         max_concurrency       = getenv_number('ASSETRY_MAX_CONCURRENCY',       24),
         named_operations_file = getenv_string('ASSETRY_NAMED_OPERATIONS_FILE', nil),
         default_params        = getenv_string('ASSETRY_DEFAULT_PARAMS',        '/resize/w=1024,h=1024,m=fit'),

@@ -14,7 +14,7 @@
 # Test binaries
 *.test
 test/test_output_*
-./data/
+data/
 
 # Code coverage profiles and other test artifacts
 *.out

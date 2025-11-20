@@ -1,12 +1,12 @@
-local http     = require "resty.http"
-local url      = require "net.url"
+local http = require "resty.http"
+local url = require "net.url"
 local lrucache = require "resty.lrucache"
-local cjson    = require "cjson"
+local cjson = require "cjson"
 
 local l_table_concat = table.concat
 local l_setmetatable = setmetatable
-local l_pairs        = pairs
-local l_string       = string
+local l_pairs = pairs
+local l_string = string
 
 local _M = {}
 
@@ -15,27 +15,27 @@ function _M.new(self, opts)
         opts = {}
     end
 
-    l_setmetatable(opts, {__index={
-        keepalive_timeout      = 120,
-        keepalive_pool_size    = 24,
-        request_timeout        = 30,
-        ssl_session_cache_size = 24,
-
-        ssl_session_cache_ttl  = 120,
-        max_redirects          = 3,
-        max_body_size          = 25 * 1024 * 1024,
-    }})
+    l_setmetatable(opts, {
+        __index = {
+            keepalive_timeout = 120,
+            keepalive_pool_size = 24,
+            request_timeout = 30,
+            ssl_session_cache_size = 24,
+            ssl_session_cache_ttl = 120,
+            max_redirects = 3,
+            max_body_size = 25 * 1024 * 1024
+        }
+    })
 
     opts.keepalive_timeout = opts.keepalive_timeout * 1000
-    opts.request_timeout   = opts.request_timeout * 1000
+    opts.request_timeout = opts.request_timeout * 1000
 
     local ssl_cache = lrucache.new(opts.ssl_session_cache_size)
     return l_setmetatable({ opts = opts, ssl_cache = ssl_cache }, { __index = _M })
 end
 
-
 local function ssl_handshake(self, httpclient, host, port)
-    local cache_key    = host .. ':' .. port
+    local cache_key = host .. ":" .. port
     local prev_session = self.ssl_cache:get(cache_key)
     local session, err = httpclient:ssl_handshake(prev_session, host, true)
 
@@ -80,7 +80,6 @@ local function read_response_body(res, max_body_size)
     return l_table_concat(chunks)
 end
 
-
 function _M.get_url(self, image_url, redirects_left)
     local httpclient = http.new()
 
@@ -106,7 +105,7 @@ function _M.get_url(self, image_url, redirects_left)
     local ok, err = httpclient:connect(host, port)
 
     if not ok then
-        return nil, 'failed to fetch ' .. image_url .. ": " .. err
+        return nil, "failed to fetch " .. image_url .. ": " .. err
     end
 
     if u.scheme == "https" then
@@ -121,11 +120,7 @@ function _M.get_url(self, image_url, redirects_left)
 
     local res, err = httpclient:request{
         path = req_path,
-        headers = {
-            ['Host']       = host,
-            ["User-Agent"] = "openresty/assetry",
-            ["Connection"] = "Keep-Alive",
-        },
+        headers = { ["Host"] = host, ["User-Agent"] = "openresty/assetry", ["Connection"] = "Keep-Alive" }
     }
 
     if not res then
@@ -139,7 +134,7 @@ function _M.get_url(self, image_url, redirects_left)
         end
 
         for name, value in l_pairs(res.headers) do
-            if l_string.lower(name) == 'location' then
+            if l_string.lower(name) == "location" then
                 return self:get_url(value, redirects_left - 1)
             end
         end

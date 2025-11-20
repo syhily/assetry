@@ -1,46 +1,38 @@
 local util = require "resty.assetry_util"
 
-local l_assert       = assert
+local l_assert = assert
 local l_table_insert = table.insert
-local l_tonumber     = tonumber
-local l_pairs        = pairs
-local l_rawset       = rawset
+local l_tonumber = tonumber
+local l_pairs = pairs
+local l_rawset = rawset
 local l_setmetatable = setmetatable
 
 local supported_operations = {
-    CROP   = "crop",
-    BLUR   = "blur",
+    CROP = "crop",
+    BLUR = "blur",
     RESIZE = "resize",
-    ROUND  = "round",
-    NAMED  = "named",
+    ROUND = "round",
+    NAMED = "named",
     FORMAT = "format",
     OPTION = "option"
 }
 
-local supported_modes = {
-    fit  = true,
-    fill = true,
-    crop = true,
-}
+local supported_modes = { fit = true, fill = true, crop = true }
 
 local supported_gravity = {
-    n      = true,
-    ne     = true,
-    e      = true,
-    se     = true,
-    s      = true,
-    sw     = true,
-    w      = true,
-    nw     = true,
+    n = true,
+    ne = true,
+    e = true,
+    se = true,
+    s = true,
+    sw = true,
+    w = true,
+    nw = true,
     center = true,
-    smart  = true,
+    smart = true
 }
 
-local _M = {
-    named_ops = {},
-    ops       = {},
-    supported_formats = {}
-}
+local _M = { named_ops = {}, ops = {}, supported_formats = {} }
 
 local function validate_always_valid()
     return true
@@ -58,10 +50,9 @@ local function to_boolean(str)
     end
 end
 
-
 local function parse_color(str)
     if not str then
-        return nil, 'empty color string'
+        return nil, "empty color string"
     end
 
     if str:len() == 3 then
@@ -80,13 +71,8 @@ local function parse_color(str)
         return nil, "malformed color string " .. str
     end
 
-    return {
-        r = r,
-        g = g,
-        b = b,
-    }
+    return { r = r, g = g, b = b }
 end
-
 
 local function validate_width(width)
     return width and width < _M.opts.max_width and width > 0
@@ -125,28 +111,19 @@ local function validate_color(color)
 end
 
 local function make_boolean_arg()
-    return {
-        convert_fn  = to_boolean,
-        validate_fn = validate_always_valid
-    }
+    return { convert_fn = to_boolean, validate_fn = validate_always_valid }
 end
 
 local function make_number_arg(validate_fn)
-    return {
-        convert_fn  = l_tonumber,
-        validate_fn = validate_fn,
-    }
+    return { convert_fn = l_tonumber, validate_fn = validate_fn }
 end
 
 local function make_string_arg(validate_fn)
-    return { validate_fn = validate_fn, }
+    return { validate_fn = validate_fn }
 end
 
 local function make_color_arg(validate_fn)
-    return {
-        convert_fn  = parse_color,
-        validate_fn = validate_fn,
-    }
+    return { convert_fn = parse_color, validate_fn = validate_fn }
 end
 
 function _M.init(formats, opts)
@@ -163,31 +140,25 @@ function _M.init(formats, opts)
     _M.ops = {
         crop = {
             params = {
-                w  = make_number_arg(validate_width),
-                h  = make_number_arg(validate_height),
-                g  = make_string_arg(validate_gravity),  -- gravity
+                w = make_number_arg(validate_width),
+                h = make_number_arg(validate_height),
+                g = make_string_arg(validate_gravity) -- gravity
             },
             validate_fn = function(p)
                 if not p.w and not p.h then
-                    return nil, 'missing w= and h= for crop'
+                    return nil, "missing w= and h= for crop"
                 end
                 return true
             end
         },
 
-        option = {
-            params = {
-                c = make_color_arg(validate_color),
-            },
-        },
+        option = { params = { c = make_color_arg(validate_color) } },
 
         blur = {
-            params = {
-                s  = make_number_arg(validate_sigma),
-            },
+            params = { s = make_number_arg(validate_sigma) },
             validate_fn = function(p)
                 if not p.s then
-                    return nil, 'missing s= (sigma) for blur'
+                    return nil, "missing s= (sigma) for blur"
                 end
                 return true
             end
@@ -195,13 +166,13 @@ function _M.init(formats, opts)
 
         resize = {
             params = {
-                w  = make_number_arg(validate_width),
-                h  = make_number_arg(validate_height),
-                m  = make_string_arg(validate_resize_mode),
+                w = make_number_arg(validate_width),
+                h = make_number_arg(validate_height),
+                m = make_string_arg(validate_resize_mode)
             },
             validate_fn = function(p)
                 if not p.w and not p.h then
-                    return nil, 'missing both w= and h= for resize'
+                    return nil, "missing both w= and h= for resize"
                 end
                 return true
             end
@@ -211,12 +182,12 @@ function _M.init(formats, opts)
             params = {
                 p = make_number_arg(validate_percentage),
                 x = make_number_arg(validate_width),
-                y = make_number_arg(validate_height),
+                y = make_number_arg(validate_height)
             },
             validate_fn = function(p)
                 if not p.p then
                     if not p.x and not p.y then
-                        return nil, 'round needs either p= or both x= and y='
+                        return nil, "round needs either p= or both x= and y="
                     end
                 end
                 return true
@@ -224,15 +195,13 @@ function _M.init(formats, opts)
         },
 
         named = {
-            params = {
-                n = make_string_arg(validate_name)
-            },
+            params = { n = make_string_arg(validate_name) },
             validate_fn = function(p)
                 if not p.n then
-                    return nil, 'named operation is missing n= param'
+                    return nil, "named operation is missing n= param"
                 end
                 if not _M.named_ops[p.n] then
-                    return nil, 'the named operation ' .. p.n .. ' does not exist'
+                    return nil, "the named operation " .. p.n .. " does not exist"
                 end
                 return true
             end
@@ -245,11 +214,7 @@ function _M.init(formats, opts)
                 s = make_boolean_arg()
             },
             get_default_params = function()
-                return {
-                    t = opts.default_format,
-                    q = opts.default_quality,
-                    s = opts.default_strip
-                }
+                return { t = opts.default_format, q = opts.default_quality, s = opts.default_strip }
             end
         }
     }
@@ -262,10 +227,10 @@ function _M.init(formats, opts)
         end
 
         for n, line in l_pairs(lines) do
-            local name, operation = line:match('(.+)%s?:%s?(.+)')
+            local name, operation = line:match("(.+)%s?:%s?(.+)")
 
             if not name or not operation then
-                return nil, "Failed to parse line (" .. n .."): " .. err
+                return nil, "Failed to parse line (" .. n .. "): " .. err
             else
 
                 local parsed, err = _M.parse(operation)
@@ -290,7 +255,9 @@ local function ordered_table()
         while key ~= nil do
             key = next_key[key]
             local val = self[key]
-            if val ~= nil then return key, val end
+            if val ~= nil then
+                return key, val
+            end
         end
     end
 
@@ -305,24 +272,22 @@ local function ordered_table()
         end
     end
 
-    function self_meta:__pairs() return on_next, self, first_key end
+    function self_meta:__pairs()
+        return on_next, self, first_key
+    end
 
     return l_setmetatable(key2val, self_meta)
 end
 
 local function new_manifest()
-    return {
-        format     = nil,
-        option     = nil,
-        operations = ordered_table()
-    }
+    return { format = nil, option = nil, operations = ordered_table() }
 end
 
 function _M.parse(str)
     local manifest = new_manifest()
     local err
 
-    for name, params in str:gmatch('([^/]+)/([^/]+)') do
+    for name, params in str:gmatch("([^/]+)/([^/]+)") do
 
         local op_definition = _M.ops[name]
 
@@ -336,7 +301,7 @@ function _M.parse(str)
             -- Loop through recognized params
             for n, def in l_pairs(op_definition.params) do
 
-                local value = params:match(n .. '=([^,/]+)')
+                local value = params:match(n .. "=([^,/]+)")
 
                 if value then
                     if def.convert_fn then
@@ -349,7 +314,7 @@ function _M.parse(str)
 
                     if def.validate_fn then
                         if not def.validate_fn(value) then
-                            return nil, name .. "->" .. n .. '(value: ' .. (value or 'nil') .. ') failed validation'
+                            return nil, name .. "->" .. n .. "(value: " .. (value or "nil") .. ") failed validation"
                         end
                     end
                     fn_params[n] = value
@@ -372,23 +337,20 @@ function _M.parse(str)
             elseif name == supported_operations.OPTION then
                 manifest.option = fn_params
             else
-                l_table_insert(manifest.operations, {
-                    name   = name,
-                    params = fn_params
-                })
+                l_table_insert(manifest.operations, { name = name, params = fn_params })
             end
 
         else
-            return nil, 'unrecognized operation ' .. name
+            return nil, "unrecognized operation " .. name
         end
     end
 
     if #manifest.operations == 0 then
-        return nil, 'did not find valid operations'
+        return nil, "did not find valid operations"
     end
 
     if #manifest.operations > _M.opts.max_operations then
-        return nil, 'amount of operations exceeds configured maximum'
+        return nil, "amount of operations exceeds configured maximum"
     end
 
     if not manifest.format then

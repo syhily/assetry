@@ -5,6 +5,8 @@
         "cjson",
         "dylib",
         "dynamiclib",
+        "functioncall",
+        "functiondef",
         "gaussblur",
         "getenv",
         "ginit",

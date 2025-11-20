@@ -25,3 +25,7 @@ install: all
 
 clean:
 	-${RM} ${TARGET_LIB} ${OBJS} $(SRCS:.cc=.d)
+
+dylib: ${TARGET_LIB}
+	$(CPP) -dynamiclib *.o -o libAssetryHelper.dylib ${LDFLAGS}
+	cp libAssetryHelper.dylib /opt/homebrew/lib/libAssetryHelper.dylib

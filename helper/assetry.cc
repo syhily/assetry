@@ -408,7 +408,7 @@ void *Assetry::to_buffer(const std::string &format_in, int quality, bool strip, 
         if (format == ".png")
         {
             options->set("palette", true);
-            options->set("colors", 256);
+            options->set("colours", 256);
             options->set("dither", 1.0);
         }
     }

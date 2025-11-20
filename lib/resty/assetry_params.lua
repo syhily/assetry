@@ -319,8 +319,8 @@ function _M.parse(str)
                 local val = raw
                 if def.convert_fn then
                     local converted, err = def.convert_fn(raw)
-                    if not converted then
-                        return nil, err or ("failed to convert " .. p_name)
+                    if converted == nil then
+                        return nil, err or ("failed to convert param " .. p_name)
                     end
                     val = converted
                 end

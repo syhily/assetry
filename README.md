@@ -117,8 +117,6 @@ Operations can be chained:
 | ----- | ----------------------------- |
 | `s`   | Sigma value for gaussian blur |
 
----
-
 ### Examples
 
 #### Resize + Crop
@@ -138,6 +136,116 @@ http://localhost:8080/images/original.jpg?resize/w=500,h=500,m=fit/crop/w=200,h=
 ```text
 http://localhost:8080/images/user.jpg?named/n=avatar
 ```
+
+## Assetry Upload API
+
+This module provides file upload and listing functionality for OpenResty using `resty.upload`.
+Files can be uploaded via HTTP POST, and existing files can be listed via HTTP GET. All requests require an API key.
+
+### Endpoints
+
+#### 1. List Uploaded Files
+
+**GET** `/upload/{path}`
+
+Lists all files in a given directory.
+
+**Path Parameters:**
+
+| Name   | Description                                                       |
+| ------ | ----------------------------------------------------------------- |
+| `path` | **(Optional)** Folder path to list files (e.g., `images/2025/11`) |
+
+**Query Parameters:**
+
+| Name      | Description                     |
+| --------- | ------------------------------- |
+| `api_key` | Your API key for authentication |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:8080/upload/images/2025/11?api_key=YOUR_API_KEY"
+```
+
+**Example Response:**
+
+```json
+{
+  "path": "images/2025/11",
+  "files": [
+    {
+      "name": "2025110600183700.jpg",
+      "type": "file",
+      "sha256": "729b39216e35bf0bd926745382ee63ee7bfe9e746e100c284c19638cb586d607"
+    },
+    {
+      "name": "2025110600201100.jpg",
+      "type": "file",
+      "sha256": "a68b6f1867ad720a2cc938543bb663435e9eb63e24e80f4daa3d167e4ba7e93f"
+    }
+  ]
+}
+```
+
+#### 2. Upload a File
+
+**POST** `/upload/{path}`
+
+Uploads a file to a folder.
+
+**Path Parameters:**
+
+| Name   | Description                                                         |
+| ------ | ------------------------------------------------------------------- |
+| `path` | **Required.** Folder path to save the file (e.g., `images/2025/11`) |
+
+**Query Parameters:**
+
+| Name      | Description                     |
+| --------- | ------------------------------- |
+| `api_key` | Your API key for authentication |
+
+**Form Data:**
+
+| Name   | Type | Description        |
+| ------ | ---- | ------------------ |
+| `file` | file | The file to upload |
+
+**Example Request:**
+
+```bash
+curl -X POST "http://localhost:8080/upload/images/2025/11?api_key=YOUR_API_KEY" \
+     -F "file=@/path/to/file.jpg"
+```
+
+**Example Response:**
+
+```json
+{
+  "path": "images/2025/11",
+  "file": "file.jpg",
+  "size": 123456
+}
+```
+
+* `path` – the folder where the file was saved
+* `file` – the uploaded filename
+* `size` – the file size in bytes
+
+### Authentication
+
+All requests require an API key passed via the `api_key` query parameter:
+
+```
+?api_key=YOUR_API_KEY
+```
+
+### Notes
+
+* Files are stored under the `data_root` directory defined in the module (default `/data`).
+* GET `/upload/{path}` lists all files with their names, type, and SHA256 hash.
+* The API supports nested folders in the path (e.g., `images/2025/11`).
 
 ## Credits
 

@@ -25,6 +25,13 @@ local function mkdir_p(path)
     return true
 end
 
+local function is_file(path)
+    local p = io.popen("test -f \"" .. path .. "\" && echo yes || echo no")
+    local res = p:read("*l")
+    p:close()
+    return res == "yes"
+end
+
 -- List files with SHA256 without creating directory
 local function list_files_sha(dir)
     local files = {}
@@ -44,17 +51,18 @@ local function list_files_sha(dir)
 
     for entry in p:lines() do
         local fpath = dir .. "/" .. entry
-        local file = io.open(fpath, "rb")
-        if file then
-            -- It's a file
-            local data = file:read("*a")
-            file:close()
-            local sha_obj = sha256:new()
-            sha_obj:update(data)
-            local digest = str.to_hex(sha_obj:final())
-            files[#files + 1] = { name = entry, type = "file", sha256 = digest }
+        if is_file(fpath) then
+            local file = io.open(fpath, "rb")
+            if file then
+                local data = file:read("*a") or ""
+                file:close()
+                local sha_obj = sha256:new()
+                sha_obj:update(data)
+                local digest = str.to_hex(sha_obj:final())
+                files[#files + 1] = { name = entry, type = "file", sha256 = digest }
+            end
         else
-            -- Cannot open as file; treat as directory
+            -- Treat as directory
             files[#files + 1] = { name = entry, type = "dir" }
         end
     end

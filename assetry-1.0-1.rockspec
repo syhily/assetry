@@ -19,6 +19,7 @@ using libvips for fast operations.
 }
 
 dependencies = {
+    "lua == 5.1"
 }
 
 build_dependencies = {
@@ -31,7 +32,6 @@ build = {
         ["resty.assetry_http"] = "lib/resty/assetry_http.lua",
         ["resty.assetry_params"] = "lib/resty/assetry_params.lua",
         ["resty.assetry_stats"] = "lib/resty/assetry_stats.lua",
-        ["resty.assetry_thumbhash"] = "lib/resty/assetry_thumbhash.lua",
         ["resty.assetry_upload"] = "lib/resty/assetry_upload.lua",
         ["resty.assetry_util"] = "lib/resty/assetry_util.lua",
         ["resty.assetry_vips"] = "lib/resty/assetry_vips.lua"
@@ -40,11 +40,9 @@ build = {
 
 test = {
     type = "busted",
-    flags = { "-o", "gtest" },
+    flags = { "-o", "gtest" }
 }
 
 test_dependencies = {
-    "luacheck >= 1.2.0-1",
-    "luaformatter",
     "busted"
 }

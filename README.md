@@ -75,7 +75,16 @@ by using [luacheck](https://github.com/mpeterv/luacheck).
 To simplify the develop environment configuration. LuaRocks is used only for local lua package installation.
 
 ```bash
+luarocks install --server=https://luarocks.org/dev luaformatter
+luarocks install luacheck
 luarocks install --only-deps assetry-1.0-1.rockspec
+```
+
+The tests should be executed on LuaJIT. Ensure it has been installed on your machine.
+Execute the command bellow for testing.
+
+```bash
+luarocks --lua-dir=/opt/homebrew/opt/luajit --lua-version=5.1 test
 ```
 
 ## Status API

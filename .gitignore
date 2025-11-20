@@ -21,6 +21,7 @@ data/
 coverage.*
 *.coverprofile
 profile.cov
+spec/test_output_*
 
 # env file
 .env

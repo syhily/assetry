@@ -83,7 +83,7 @@ describe("resty.assetry_params", function()
     for _, t in ipairs(test_params) do
         it("parses " .. t.str .. " correctly", function()
             local res, err = params.parse(t.str)
-            print(err)
+            assert.is_nil(err)
             assert.is_not_nil(res)
             assert.are.same(t.expect.format, res.format)
             assert.are.same(t.expect.operations, res.operations)

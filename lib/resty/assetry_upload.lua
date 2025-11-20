@@ -25,27 +25,41 @@ local function mkdir_p(path)
     return true
 end
 
--- List files with SHA256
+-- List files with SHA256 without creating directory
 local function list_files_sha(dir)
     local files = {}
-    local p = io.popen("ls -A \"" .. dir .. "\" 2>/dev/null")
-    if p then
-        for file in p:lines() do
-            local fpath = dir .. "/" .. file
-            local f = io.open(fpath, "rb")
-            if f then
-                local data = f:read("*a")
-                f:close()
-                local sha = sha256:new()
-                sha:update(data)
-                local digest = str.to_hex(sha:final())
-                files[#files + 1] = { name = file, sha256 = digest }
-            else
-                files[#files + 1] = { name = file, sha256 = nil }
-            end
-        end
-        p:close()
+
+    -- Check if directory exists
+    local f = io.open(dir, "r")
+    if not f then
+        return files -- return empty list if dir doesn't exist
     end
+    f:close()
+
+    -- Iterate over entries
+    local p = io.popen("ls -A \"" .. dir .. "\" 2>/dev/null")
+    if not p then
+        return files
+    end
+
+    for entry in p:lines() do
+        local fpath = dir .. "/" .. entry
+        local file = io.open(fpath, "rb")
+        if file then
+            -- It's a file
+            local data = file:read("*a")
+            file:close()
+            local sha_obj = sha256:new()
+            sha_obj:update(data)
+            local digest = str.to_hex(sha_obj:final())
+            files[#files + 1] = { name = entry, type = "file", sha256 = digest }
+        else
+            -- Cannot open as file; treat as directory
+            files[#files + 1] = { name = entry, type = "dir" }
+        end
+    end
+
+    p:close()
     return files
 end
 
@@ -92,14 +106,6 @@ end
 -- Handle GET requests
 local function handle_list_files(path)
     local dir = data_root .. "/" .. path
-    local ok, err = mkdir_p(dir)
-    if not ok then
-        ngx.status = 500
-        ngx.header["content-type"] = "application/json"
-        ngx.say(cjson.encode({ error = "the query path isn't a directory", detail = err }))
-        return
-    end
-
     local files = list_files_sha(dir)
     ngx.header["content-type"] = "application/json"
     ngx.say(cjson.encode({ path = path, files = files }))

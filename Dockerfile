@@ -1,6 +1,6 @@
 FROM openresty/openresty:alpine
 
-ENV LIBVIPS_VERSION 8.17.3
+ENV LIBVIPS_VERSION=8.17.3
 
 WORKDIR /data
 EXPOSE 8080
@@ -39,6 +39,8 @@ RUN cd /tmp/helper \
 
 COPY ./entrypoint.sh /entrypoint.sh
 RUN mkdir -p /var/run/openresty-assetry/logs \
+    && \
+    mkdir -p /var/run/openresty-assetry/cache \
     && \
     chmod +x /entrypoint.sh
 COPY ./nginx.conf    /var/run/openresty-assetry/nginx.conf

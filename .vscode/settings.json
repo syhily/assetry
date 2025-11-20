@@ -22,6 +22,7 @@
         "maxage",
         "metatype",
         "neturl",
+        "perr",
         "prettycjson",
         "resolv",
         "resty",

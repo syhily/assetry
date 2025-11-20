@@ -3,36 +3,20 @@ local http = require "resty.assetry_http"
 local stats = require "resty.assetry_stats"
 local params = require "resty.assetry_params"
 local pretty = require "resty.prettycjson"
-local url = require "net.url"
 local util = require "resty.assetry_util"
 local upload = require "resty.assetry_upload"
 
 local ngx_ctx = ngx.ctx
-local shared = ngx.shared
 local to_number = tonumber
 local ngx_now = ngx.now
 local ngx_var = ngx.var
 local ngx_update_time = ngx.update_time
-local get_time = os.clock
-local table_concat = table.concat
 
 local log_error = util.log_error
 local log_warn = util.log_warn
 local log_info = util.log_info
 
 local _M = {}
-
-local function getenv_table(var_name, default)
-    local val = os.getenv(var_name)
-    if val then
-        local ret_val = {}
-        for entry in string.gmatch(val, "%S+") do
-            ret_val[entry] = true
-        end
-        return ret_val
-    end
-    return default
-end
 
 local function getenv_number(var_name, default)
     local v = os.getenv(var_name)
@@ -47,7 +31,7 @@ end
 local function getenv_boolean(var_name, default)
     local v = os.getenv(var_name)
     if v then
-        if str == "1" or str == "true" or str == "yes" then
+        if v == "1" or v == "true" or v == "yes" then
             return true
         else
             return false

@@ -1,7 +1,7 @@
 local util = require "resty.assetry_util"
 
 local l_assert = assert
-local l_table_insert = table.insert
+local l_insert = table.insert
 local l_tonumber = tonumber
 local l_pairs = pairs
 local l_rawset = rawset
@@ -32,8 +32,11 @@ local supported_gravity = {
     smart = true
 }
 
-local _M = { named_ops = {}, ops = {}, supported_formats = {} }
+local _M = { named_ops = {}, ops = {}, supported_formats = {}, opts = {} }
 
+-- ---------------------------------------------------------------------------
+-- Helpers
+-- ---------------------------------------------------------------------------
 local function validate_always_valid()
     return true
 end
@@ -43,11 +46,7 @@ local function to_boolean(str)
         return false
     end
 
-    if str == "1" or str == "true" or str == "yes" then
-        return true
-    else
-        return false
-    end
+    return (str == "1" or str == "true" or str == "yes")
 end
 
 local function parse_color(str)
@@ -55,14 +54,14 @@ local function parse_color(str)
         return nil, "empty color string"
     end
 
-    if str:len() == 3 then
+    local r, g, b
 
+    if #str == 3 then
         r = l_tonumber("0x" .. str:sub(1, 1)) * 17
         g = l_tonumber("0x" .. str:sub(2, 2)) * 17
         b = l_tonumber("0x" .. str:sub(3, 3)) * 17
 
-    elseif str:len() == 6 then
-
+    elseif #str == 6 then
         r = l_tonumber("0x" .. str:sub(1, 2))
         g = l_tonumber("0x" .. str:sub(3, 4))
         b = l_tonumber("0x" .. str:sub(5, 6))
@@ -75,23 +74,19 @@ local function parse_color(str)
 end
 
 local function validate_width(width)
-    return width and width < _M.opts.max_width and width > 0
+    return width and width > 0 and width < _M.opts.max_width
 end
 
 local function validate_height(height)
-    return height and height < _M.opts.max_height and height > 0
+    return height and height > 0 and height < _M.opts.max_height
 end
 
 local function validate_sigma(sigma)
-    return sigma and sigma >= 0.0
+    return sigma ~= nil and sigma >= 0.0
 end
 
-local function validate_quality(quality)
-    return quality and quality >= 1 and quality <= 100
-end
-
-local function validate_format(str)
-    return str and _M.supported_formats[str] ~= nil
+local function validate_format(fmt)
+    return fmt and _M.supported_formats[fmt] ~= nil
 end
 
 local function validate_resize_mode(str)
@@ -103,13 +98,24 @@ local function validate_gravity(str)
 end
 
 local function validate_color(color)
-    if not color then
-        return false
-    end
-
-    return color.r >= 0 and color.r <= 255 and color.g >= 0 and color.g <= 255 and color.b >= 0 and color.b <= 255
+    return
+        color and color.r >= 0 and color.r <= 255 and color.g >= 0 and color.g <= 255 and color.b >=
+            0 and color.b <= 255
 end
 
+-- Missing in original code
+local function validate_percentage(v)
+    return v and v >= 0 and v <= 100
+end
+
+-- Missing in original code
+local function validate_name(name)
+    return name ~= nil and name ~= ""
+end
+
+-- ---------------------------------------------------------------------------
+-- Arg builders
+-- ---------------------------------------------------------------------------
 local function make_boolean_arg()
     return { convert_fn = to_boolean, validate_fn = validate_always_valid }
 end
@@ -126,6 +132,9 @@ local function make_color_arg(validate_fn)
     return { convert_fn = parse_color, validate_fn = validate_fn }
 end
 
+-- ---------------------------------------------------------------------------
+-- Initialize
+-- ---------------------------------------------------------------------------
 function _M.init(formats, opts)
     l_assert(opts.max_width)
     l_assert(opts.max_height)
@@ -138,11 +147,12 @@ function _M.init(formats, opts)
     _M.opts = opts
 
     _M.ops = {
+
         crop = {
             params = {
                 w = make_number_arg(validate_width),
                 h = make_number_arg(validate_height),
-                g = make_string_arg(validate_gravity) -- gravity
+                g = make_string_arg(validate_gravity)
             },
             validate_fn = function(p)
                 if not p.w and not p.h then
@@ -185,10 +195,8 @@ function _M.init(formats, opts)
                 y = make_number_arg(validate_height)
             },
             validate_fn = function(p)
-                if not p.p then
-                    if not p.x and not p.y then
-                        return nil, "round needs either p= or both x= and y="
-                    end
+                if not p.p and (not p.x or not p.y) then
+                    return nil, "round needs either p= or both x= and y="
                 end
                 return true
             end
@@ -198,10 +206,10 @@ function _M.init(formats, opts)
             params = { n = make_string_arg(validate_name) },
             validate_fn = function(p)
                 if not p.n then
-                    return nil, "named operation is missing n= param"
+                    return nil, "named operation missing n="
                 end
                 if not _M.named_ops[p.n] then
-                    return nil, "the named operation " .. p.n .. " does not exist"
+                    return nil, "named operation '" .. p.n .. "' does not exist"
                 end
                 return true
             end
@@ -219,129 +227,128 @@ function _M.init(formats, opts)
         }
     }
 
+    -- Load named operations file
     if opts.named_operations_file then
         local lines, err = util.file_get_lines(opts.named_operations_file)
-
         if not lines then
-            return nil, "Failed to read named operations file(" .. opts.named_operations_file .. "): " .. err
+            return nil, "Failed to read named operations file (" .. opts.named_operations_file ..
+                       "): " .. err
         end
 
         for n, line in l_pairs(lines) do
             local name, operation = line:match("(.+)%s?:%s?(.+)")
-
             if not name or not operation then
-                return nil, "Failed to parse line (" .. n .. "): " .. err
-            else
-
-                local parsed, err = _M.parse(operation)
-
-                if not parsed then
-                    return nil, "Failed to parse named operation: " .. err
-                else
-                    _M.named_ops[name] = parsed
-                end
+                return nil, "Failed to parse line " .. n
             end
+
+            local parsed, perr = _M.parse(operation)
+            if not parsed then
+                return nil, "Failed to parse named operation: " .. perr
+            end
+
+            _M.named_ops[name] = parsed
         end
     end
 
     return true
 end
 
+-- ---------------------------------------------------------------------------
+-- Ordered table
+-- ---------------------------------------------------------------------------
 local function ordered_table()
-    local key2val, next_key, first_key = {}, {}, {}
-    next_key[next_key] = first_key
+    local data = {}
+    local next_key = {}
+    local first_key = {}
 
-    local function on_next(self, key)
-        while key ~= nil do
-            key = next_key[key]
-            local val = self[key]
-            if val ~= nil then
-                return key, val
-            end
+    next_key[first_key] = nil
+
+    local function iter(self, key)
+        key = next_key[key]
+        if key ~= nil then
+            return key, self[key]
         end
     end
 
-    local self_meta = first_key
-    self_meta.__next_key = next_key
+    local mt = {}
 
-    function self_meta:__newindex(key, val)
+    function mt:__newindex(key, val)
         l_rawset(self, key, val)
-        if next_key[key] == nil then -- adding a new key
-            next_key[next_key[next_key]] = key
-            next_key[next_key] = key
+        if next_key[key] == nil then
+            local last = first_key
+            while next_key[last] do
+                last = next_key[last]
+            end
+            next_key[last] = key
+            next_key[key] = nil
         end
     end
 
-    function self_meta:__pairs()
-        return on_next, self, first_key
+    function mt:__pairs()
+        return iter, data, first_key
     end
 
-    return l_setmetatable(key2val, self_meta)
+    return l_setmetatable(data, mt)
 end
 
+-- ---------------------------------------------------------------------------
+-- Manifest creation
+-- ---------------------------------------------------------------------------
 local function new_manifest()
     return { format = nil, option = nil, operations = ordered_table() }
 end
 
+-- ---------------------------------------------------------------------------
+-- Parsing
+-- ---------------------------------------------------------------------------
 function _M.parse(str)
     local manifest = new_manifest()
-    local err
 
-    for name, params in str:gmatch("([^/]+)/([^/]+)") do
+    for op_name, params in str:gmatch("([^/]+)/([^/]+)") do
+        local op_def = _M.ops[op_name]
 
-        local op_definition = _M.ops[name]
+        if not op_def then
+            return nil, "unrecognized operation " .. op_name
+        end
 
-        if op_definition then
-            local fn_params = {}
+        local fn_params = op_def.get_default_params and op_def.get_default_params() or {}
 
-            if op_definition.get_default_params then
-                fn_params = op_definition.get_default_params()
-            end
-
-            -- Loop through recognized params
-            for n, def in l_pairs(op_definition.params) do
-
-                local value = params:match(n .. "=([^,/]+)")
-
-                if value then
-                    if def.convert_fn then
-                        value, err = def.convert_fn(value)
-
-                        if value == nil then
-                            return nil, (err or "Failed to convert param")
-                        end
+        for p_name, def in l_pairs(op_def.params) do
+            local raw = params:match(p_name .. "=([^,/]+)")
+            if raw then
+                local val = raw
+                if def.convert_fn then
+                    local converted, err = def.convert_fn(raw)
+                    if not converted then
+                        return nil, err or ("failed to convert " .. p_name)
                     end
-
-                    if def.validate_fn then
-                        if not def.validate_fn(value) then
-                            return nil, name .. "->" .. n .. "(value: " .. (value or "nil") .. ") failed validation"
-                        end
-                    end
-                    fn_params[n] = value
+                    val = converted
                 end
-            end
 
-            if op_definition.validate_fn then
-                local ok, err = op_definition.validate_fn(fn_params)
-
-                if not ok then
-                    return nil, err
+                if def.validate_fn and not def.validate_fn(val) then
+                    return nil, op_name .. "->" .. p_name .. " validation failed (value: " ..
+                               tostring(val) .. ")"
                 end
-            end
 
-            -- Return named operation if exists
-            if name == supported_operations.NAMED then
-                return _M.named_ops[fn_params["n"]]
-            elseif name == supported_operations.FORMAT then
-                manifest.format = fn_params
-            elseif name == supported_operations.OPTION then
-                manifest.option = fn_params
-            else
-                l_table_insert(manifest.operations, { name = name, params = fn_params })
+                fn_params[p_name] = val
             end
+        end
 
+        if op_def.validate_fn then
+            local ok, err = op_def.validate_fn(fn_params)
+            if not ok then
+                return nil, err
+            end
+        end
+
+        if op_name == supported_operations.NAMED then
+            return _M.named_ops[fn_params.n]
+        elseif op_name == supported_operations.FORMAT then
+            manifest.format = fn_params
+        elseif op_name == supported_operations.OPTION then
+            manifest.option = fn_params
         else
-            return nil, "unrecognized operation " .. name
+            l_insert(manifest.operations, { name = op_name, params = fn_params })
         end
     end
 
@@ -350,14 +357,14 @@ function _M.parse(str)
     end
 
     if #manifest.operations > _M.opts.max_operations then
-        return nil, "amount of operations exceeds configured maximum"
+        return nil, "operation count exceeds max configured"
     end
 
     if not manifest.format then
-        manifest.format = _M.ops[supported_operations.FORMAT].get_default_params()
+        manifest.format = _M.ops.format.get_default_params()
     end
 
-    return manifest, nil
+    return manifest
 end
 
 return _M

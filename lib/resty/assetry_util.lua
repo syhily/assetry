@@ -1,10 +1,4 @@
-local l_print = print
 local l_io = io
-
-if not ngx then
-    ngx = { log = l_print, ERR = 0, INFO = 0, WARN = 0 }
-end
-
 local log = ngx.log
 local ERR = ngx.ERR
 local INFO = ngx.INFO

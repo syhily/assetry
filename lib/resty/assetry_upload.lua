@@ -2,13 +2,8 @@ local cjson = require "cjson"
 local upload = require "resty.upload"
 local sha256 = require "resty.sha256"
 local str = require "resty.string"
-local util = require "resty.assetry_util"
 
 local data_root = "/data"
-local random_api_key = util.random_api_key
-local log_error = util.log_error
-local log_warn = util.log_warn
-local log_info = util.log_info
 
 local _M = {}
 

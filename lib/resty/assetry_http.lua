@@ -1,7 +1,6 @@
 local http = require "resty.http"
 local url = require "net.url"
 local lrucache = require "resty.lrucache"
-local cjson = require "cjson"
 
 local l_table_concat = table.concat
 local l_setmetatable = setmetatable
@@ -120,7 +119,11 @@ function _M.get_url(self, image_url, redirects_left)
 
     local res, err = httpclient:request{
         path = req_path,
-        headers = { ["Host"] = host, ["User-Agent"] = "openresty/assetry", ["Connection"] = "Keep-Alive" }
+        headers = {
+            ["Host"] = host,
+            ["User-Agent"] = "openresty/assetry",
+            ["Connection"] = "Keep-Alive"
+        }
     }
 
     if not res then

@@ -1,15 +1,12 @@
 local ffi = require "ffi"
-local util = require "resty.assetry_util"
 
-local table_unpack = table.unpack
-local table_insert = table.insert
-
--- Load VIPS
+-- Load native library
 local lib_assetry = ffi.load("AssetryHelper")
 
--- vips definitions
+-- ---------------------------------------------------------------------------
+-- FFI Definitions
+-- ---------------------------------------------------------------------------
 ffi.cdef [[
-
 typedef enum {
     ResizeModeFill,
     ResizeModeFit,
@@ -26,126 +23,122 @@ typedef enum {
     GravityWest,
     GravityNorthWest,
     GravityCenter,
-    GravitySmart,
+    GravitySmart
 } Gravity;
 
 typedef struct Assetry Assetry;
 
 bool assetry_ginit(const char *name);
-
 const char **assetry_get_formats(size_t *num_formats);
-
 void assetry_gshutdown();
 
 Assetry *Assetry_new_from_buffer(unsigned char *buf, size_t len);
 
 int Assetry_get_width(Assetry *img);
-
 int Assetry_get_height(Assetry *img);
 
 bool Assetry_resize(Assetry *img, int width, int height, ResizeMode);
-
 bool Assetry_crop(Assetry *img, int width, int height, Gravity);
-
 bool Assetry_round(Assetry *img, int x, int y);
-
 bool Assetry_blur(Assetry *img, double sigma);
 
 bool Assetry_set_background_color(Assetry *img, int r, int g, int b);
 
-unsigned char *Assetry_to_buffer(Assetry *img, const char *format, int quality, bool strip, size_t *len);
+unsigned char *Assetry_to_buffer(Assetry *img, const char *format, int quality,
+                                 bool strip, size_t *len);
 
 void Assetry_gc(Assetry *img);
-
 void Assetry_gc_buffer(void *buf);
-
 ]]
 
-local mt = {
-    -- Resize mode to string
-    ResizeMode = { fill = lib_assetry.ResizeModeFill, fit = lib_assetry.ResizeModeFit, crop = lib_assetry.ResizeModeCrop },
+-- ---------------------------------------------------------------------------
+-- Metatype and Methods
+-- ---------------------------------------------------------------------------
 
-    -- Gravity to string
-    Gravity = {
-        n = lib_assetry.GravityNorth,
-        ne = lib_assetry.GravityNorthEast,
-        e = lib_assetry.GravityEast,
-        se = lib_assetry.GravitySouthEast,
-        s = lib_assetry.GravitySouth,
-        sw = lib_assetry.GravitySouthWest,
-        w = lib_assetry.GravityWest,
-        nw = lib_assetry.GravityNorthWest,
-        center = lib_assetry.GravityCenter,
-        smart = lib_assetry.GravitySmart
-    },
-
-    -- Static calls
-    init = lib_assetry.assetry_ginit,
-    shutdown = lib_assetry.assetry_gshutdown,
-
-    new_from_buffer = function(str, len)
-        local buf = ffi.cast("void *", str)
-        local rc = lib_assetry.Assetry_new_from_buffer(buf, len)
-
-        if rc == ffi.NULL then
-            return nil, "Error loading image"
-        end
-
-        return ffi.gc(rc, lib_assetry.Assetry_gc)
-    end,
-
-    get_formats = function()
-        local formats = {}
-
-        local len = ffi.new "size_t[1]"
-        local arr = lib_assetry.assetry_get_formats(len)
-
-        local num = tonumber(len[0])
-
-        if num == 0 then
-            return formats
-        end
-
-        for i = 0, num - 1 do
-            formats[ffi.string(arr[i])] = true
-        end
-
-        return formats
-    end,
-
-    -- Methods
-    get_width = lib_assetry.Assetry_get_width,
-    get_height = lib_assetry.Assetry_get_height,
-
-    resize = lib_assetry.Assetry_resize,
-    crop = lib_assetry.Assetry_crop,
-    round = lib_assetry.Assetry_round,
-    blur = lib_assetry.Assetry_blur,
-
-    set_background_color = lib_assetry.Assetry_set_background_color,
-
-    to_buffer = function(o, format, quality, strip)
-        local buf_size = ffi.new "size_t[1]"
-        local rc = lib_assetry.Assetry_to_buffer(o, format, quality, strip, buf_size)
-
-        if rc == ffi.NULL then
-            return nil, "Error writing image"
-        end
-
-        local buf = ffi.gc(rc, lib_assetry.Assetry_gc_buffer)
-
-        return ffi.string(buf, buf_size[0])
-    end
-}
+local mt = {}
 mt.__index = mt
 
-Assetry = ffi.metatype("Assetry", mt)
+-- Enum tables
+mt.ResizeMode = {
+    fill = lib_assetry.ResizeModeFill,
+    fit = lib_assetry.ResizeModeFit,
+    crop = lib_assetry.ResizeModeCrop
+}
 
--- Higher level Lua interface
+mt.Gravity = {
+    n = lib_assetry.GravityNorth,
+    ne = lib_assetry.GravityNorthEast,
+    e = lib_assetry.GravityEast,
+    se = lib_assetry.GravitySouthEast,
+    s = lib_assetry.GravitySouth,
+    sw = lib_assetry.GravitySouthWest,
+    w = lib_assetry.GravityWest,
+    nw = lib_assetry.GravityNorthWest,
+    center = lib_assetry.GravityCenter,
+    smart = lib_assetry.GravitySmart
+}
+
+-- Static methods
+mt.init = lib_assetry.assetry_ginit
+mt.shutdown = lib_assetry.assetry_gshutdown
+mt.get_width = lib_assetry.Assetry_get_width
+mt.get_height = lib_assetry.Assetry_get_height
+mt.resize = lib_assetry.Assetry_resize
+mt.crop = lib_assetry.Assetry_crop
+mt.round = lib_assetry.Assetry_round
+mt.blur = lib_assetry.Assetry_blur
+mt.set_background_color = lib_assetry.Assetry_set_background_color
+
+-- New from buffer wrapper
+function mt.new_from_buffer(str, len)
+    local buf = ffi.cast("unsigned char*", str)
+    local rc = lib_assetry.Assetry_new_from_buffer(buf, len)
+
+    if rc == ffi.NULL then
+        return nil, "Error loading image"
+    end
+
+    return ffi.gc(rc, lib_assetry.Assetry_gc)
+end
+
+-- Fetch supported formats
+function mt.get_formats()
+    local len_ptr = ffi.new("size_t[1]")
+    local arr = lib_assetry.assetry_get_formats(len_ptr)
+    local n = tonumber(len_ptr[0])
+
+    local out = {}
+    for i = 0, n - 1 do
+        out[ffi.string(arr[i])] = true
+    end
+
+    return out
+end
+
+-- Convert image to buffer
+function mt.to_buffer(o, format, quality, strip)
+    local len_ptr = ffi.new("size_t[1]")
+    local rc = lib_assetry.Assetry_to_buffer(o, format, quality, strip, len_ptr)
+
+    if rc == ffi.NULL then
+        return nil, "Error writing image"
+    end
+
+    local buf = ffi.gc(rc, lib_assetry.Assetry_gc_buffer)
+    return ffi.string(buf, len_ptr[0])
+end
+
+-- Create metatype
+local Assetry = ffi.metatype("Assetry", mt)
+
+-- ---------------------------------------------------------------------------
+-- High-level API
+-- ---------------------------------------------------------------------------
+
 local _M = { Assetry = Assetry, opts = {} }
 
 function _M.init(opts)
-    assert(Assetry.init("resty-assetry") == true)
+    assert(mt.init("resty-assetry"))
     assert(opts.default_format)
     assert(opts.default_quality)
     assert(opts.default_strip ~= nil)
@@ -157,14 +150,18 @@ function _M.get_formats()
     return Assetry.get_formats()
 end
 
+-- ---------------------------------------------------------------------------
+-- Image Transform Operations
+-- ---------------------------------------------------------------------------
+
 local transform = {}
 
-transform.resize = function(image, params)
+function transform.resize(img, params)
+    params = setmetatable(params or {},
+                          { __index = { w = 0, h = 0, m = lib_assetry.ResizeModeFit } })
 
-    setmetatable(params, { __index = { w = 0, h = 0, m = lib_assetry.ResizeModeFit } })
-
-    local width = params.w
-    local height = params.h
+    local w = params.w
+    local h = params.h
     local mode = params.m
 
     if type(mode) == "string" then
@@ -175,84 +172,87 @@ transform.resize = function(image, params)
         return nil, "unknown mode"
     end
 
-    return image:resize(width or 0, height or 0, mode)
-
+    return img:resize(w, h, mode)
 end
 
-transform.crop = function(image, params)
-    setmetatable(params, { __index = { w = 0, h = 0, g = lib_assetry.GravityCenter } })
+function transform.crop(img, params)
+    params = setmetatable(params or {},
+                          { __index = { w = 0, h = 0, g = lib_assetry.GravityCenter } })
 
-    local width = params.w
-    local height = params.h
-    local gravity = params.g
+    local w = params.w
+    local h = params.h
+    local g = params.g
 
-    if type(gravity) == "string" then
-        gravity = Assetry.Gravity[gravity]
+    if type(g) == "string" then
+        g = Assetry.Gravity[g]
     end
 
-    if not gravity then
+    if not g then
         return nil, "unknown gravity"
     end
 
-    return image:crop(width or 0, height or 0, gravity)
-
+    return img:crop(w, h, g)
 end
 
-transform.round = function(image, params)
-    setmetatable(params, { __index = { x = 0, y = 0, p = 0 } })
+function transform.round(img, params)
+    params = setmetatable(params or {}, { __index = { x = 0, y = 0, p = 0 } })
 
     local x = params.x
     local y = params.y
     local p = params.p
 
     if p > 0 then
-        local width = image:get_width()
-        local height = image:get_height()
-
-        x = width / 2
-        y = width / 2
+        local w = img:get_width()
+        local h = img:get_height()
+        local R = (w < h) and w or h
+        x = R / 2
+        y = R / 2
     end
 
-    return image:round(x, y)
+    return img:round(x, y)
 end
 
-transform.blur = function(image, params)
-    setmetatable(params, { __index = { s = 0.0 } })
-
-    local s = params.s
-    return image:blur(s)
+function transform.blur(img, params)
+    params = setmetatable(params or {}, { __index = { s = 0.0 } })
+    return img:blur(params.s)
 end
+
+-- ---------------------------------------------------------------------------
+-- Dispatcher
+-- ---------------------------------------------------------------------------
 
 function _M.operate(src_image, manifest)
-    local image = Assetry.new_from_buffer(src_image, src_image:len())
-
-    if not image then
+    local img = Assetry.new_from_buffer(src_image, #src_image)
+    if not img then
         return nil, "failed to read the image"
     end
 
     if manifest.option and manifest.option.c then
-        local color = manifest.option.c
-        local rc = image:set_background_color(color.r, color.g, color.b)
-
-        if not rc then
+        local c = manifest.option.c
+        if not img:set_background_color(c.r, c.g, c.b) then
             return nil, "failed to set background color"
         end
     end
 
     for _, entry in ipairs(manifest.operations) do
         local fn = transform[entry.name]
-        assert(fn)
+        if not fn then
+            return nil, "unknown operation " .. entry.name
+        end
 
-        if fn then
-            local ok, err = fn(image, entry.params)
-
-            if not ok then
-                return nil, "failed to execute " .. entry.name .. ": " .. (err or "no error message")
-            end
+        local ok, err = fn(img, entry.params or {})
+        if not ok then
+            return nil, "failed to execute " .. entry.name .. ": " .. (err or "unknown error")
         end
     end
 
-    return image:to_buffer(manifest.format.t, manifest.format.q, manifest.format.s), manifest.format.t
+    local buf, err = img:to_buffer(manifest.format.t, manifest.format.q, manifest.format.s)
+
+    if not buf then
+        return nil, err
+    end
+
+    return buf, manifest.format.t
 end
 
 return _M

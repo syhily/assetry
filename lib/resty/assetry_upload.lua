@@ -197,13 +197,16 @@ function _M.handle_upload()
     local path = ngx.var.upload_path
     local args = ngx.req.get_uri_args()
 
-    if not validate_api_key(args) or not validate_path(path) then
+    if not validate_api_key(args) then
         return
     end
 
     if method == "GET" then
         handle_list_files(path)
     elseif method == "POST" then
+        if not validate_path(path) then
+            return
+        end
         handle_upload_file(path)
     else
         ngx.status = 405

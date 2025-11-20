@@ -13,13 +13,16 @@ It supports resizing, cropping, rounding, format conversion, and more, using **l
 
 ## Features
 
-* ✅ Resize images with modes: `fit`, `fill`, `crop`
-* ✅ Crop with gravity: `n`, `ne`, `center`, `smart`, etc.
-* ✅ Circular avatars with `round`
-* ✅ Format conversion (jpeg, png, webp…) with quality control
-* ✅ Gaussian blur
-* ✅ Named operations for reusable pipelines
-* ✅ Fast, local-only image processing
+* ✅ API for uploading files, display the files details.
+* ✅ Status page for showing the image processing status.
+* ✅ Image operations provided by libvips.
+  * ✅ Resize images with modes: `fit`, `fill`, `crop`
+  * ✅ Crop with gravity: `n`, `ne`, `center`, `smart`, etc.
+  * ✅ Circular avatars with `round`
+  * ✅ Format conversion (jpeg, png, webp…) with quality control
+  * ✅ Gaussian blur
+  * ✅ Named operations for reusable pipelines
+  * ✅ Fast, local-only image processing
 
 ## Quick Start
 
@@ -63,13 +66,13 @@ thumbnail: resize/w=500,h=500,m=fit/crop/w=200,h=200,g=sw/format/t=webp
 avatar: resize/w=100,h=100,m=crop/round/p=100/format/t=jpg
 ```
 
-## URL Usage
+## Image Operation API
 
 ```text
 http://localhost:8080/path/to/local/image.jpg?<operation>/<params>
 ```
 
-Operations can be chained:
+Append image operations to the query string of the image URL. Multiple operations can be chained.
 
 ### Supported Operations
 
@@ -137,7 +140,7 @@ http://localhost:8080/images/original.jpg?resize/w=500,h=500,m=fit/crop/w=200,h=
 http://localhost:8080/images/user.jpg?named/n=avatar
 ```
 
-## Assetry Upload API
+## File Upload API
 
 This module provides file upload and listing functionality for OpenResty using `resty.upload`.
 Files can be uploaded via HTTP POST, and existing files can be listed via HTTP GET. All requests require an API key.
@@ -246,6 +249,10 @@ All requests require an API key passed via the `api_key` query parameter:
 * Files are stored under the `data_root` directory defined in the module (default `/data`).
 * GET `/upload/{path}` lists all files with their names, type, and SHA256 hash.
 * The API supports nested folders in the path (e.g., `images/2025/11`).
+
+## Status API
+
+**GET** `/status`
 
 ## Credits
 

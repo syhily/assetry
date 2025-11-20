@@ -1,7 +1,10 @@
 local cjson = require "cjson"
 local upload = require "resty.upload"
+local sha256 = require "resty.sha256"
+local str = require "resty.string"
 local util = require "resty.assetry_util"
 
+local data_root = "/data"
 local random_api_key = util.random_api_key
 local log_error = util.log_error
 local log_warn = util.log_warn
@@ -22,142 +25,172 @@ local function mkdir_p(path)
     return true
 end
 
--- List files in directory
-local function list_files(dir)
+-- List files with SHA256
+local function list_files_sha(dir)
     local files = {}
     local p = io.popen("ls -A \"" .. dir .. "\" 2>/dev/null")
     if p then
         for file in p:lines() do
-            files[#files + 1] = file
+            local fpath = dir .. "/" .. file
+            local f = io.open(fpath, "rb")
+            if f then
+                local data = f:read("*a")
+                f:close()
+                local sha = sha256:new()
+                sha:update(data)
+                local digest = str.to_hex(sha:final())
+                files[#files + 1] = { name = file, sha256 = digest }
+            else
+                files[#files + 1] = { name = file, sha256 = nil }
+            end
         end
         p:close()
     end
     return files
 end
 
+-- Initialize module
 function _M.init(config)
     _M.api_key = config.upload_api_key
-    _M.data_root = "/data"
 end
 
-function _M.handle_upload()
-    local method = ngx.req.get_method()
-    local path = ngx.var.upload_path
-    local args = ngx.req.get_uri_args()
-
-    -- Verify the API KEY
+-- Validate API key
+local function validate_api_key(args)
     local api_key = args and args["api_key"] or nil
     if _M.api_key and _M.api_key ~= api_key then
         ngx.status = 403
         ngx.header["content-type"] = "application/json"
         ngx.say(cjson.encode({ error = "forbidden" }))
-        return
+        return false
     end
+    return true
+end
 
-    -- Validate upload path
+-- Validate upload path
+local function validate_path(path)
     if not path or path == "" then
         ngx.status = 400
         ngx.header["content-type"] = "application/json"
         ngx.say(cjson.encode({ error = "missing path" }))
-        return
+        return false
     end
     if path:find("%.%.") or path:sub(1, 1) == "/" then
         ngx.status = 400
         ngx.header["content-type"] = "application/json"
         ngx.say(cjson.encode({ error = "invalid path" }))
-        return
+        return false
     end
     if not path:match("^[A-Za-z0-9_%-. /]+$") then
         ngx.status = 400
         ngx.header["content-type"] = "application/json"
         ngx.say(cjson.encode({ error = "unsupported characters in path" }))
+        return false
+    end
+    return true
+end
+
+-- Handle GET requests
+local function handle_list_files(path)
+    local dir = data_root .. "/" .. path
+    local ok, err = mkdir_p(dir)
+    if not ok then
+        ngx.status = 500
+        ngx.header["content-type"] = "application/json"
+        ngx.say(cjson.encode({ error = "the query path isn't a directory", detail = err }))
         return
     end
 
-    local dir = _M.data_root .. "/" .. path
+    local files = list_files_sha(dir)
+    ngx.header["content-type"] = "application/json"
+    ngx.say(cjson.encode({ path = path, files = files }))
+end
+
+-- Handle POST requests
+local function handle_upload_file(path)
+    local dir = data_root .. "/" .. path
+    local form, err = upload:new(4096)
+    if not form then
+        ngx.status = 500
+        ngx.header["content-type"] = "application/json"
+        ngx.say(cjson.encode({ error = "upload init failed", detail = err }))
+        return
+    end
+    form:set_timeout(5000)
+
+    local ok, err = mkdir_p(dir)
+    if not ok then
+        ngx.status = 500
+        ngx.header["content-type"] = "application/json"
+        ngx.say(cjson.encode({ error = "the upload path can't be created", detail = err }))
+        return
+    end
+
+    local file, filename, size = nil, nil, 0
+
+    while true do
+        local typ, res, err = form:read()
+        if not typ then
+            ngx.status = 400
+            ngx.header["content-type"] = "application/json"
+            ngx.say(cjson.encode({ error = "read failed", detail = err }))
+            return
+        end
+
+        if typ == "header" then
+            local name, value = res[1], res[2]
+            if name == "Content-Disposition" then
+                local m = ngx.re.match(value, "filename=\"?([^\";]+)\"?", "jo")
+                if m then
+                    filename = m[1]
+                end
+            end
+        elseif typ == "body" then
+            if res then
+                if not file then
+                    filename = filename and filename:gsub("^.*[\\/]", "") or "upload.bin"
+                    if not filename:match("^[A-Za-z0-9_%-.]+$") then
+                        filename = "upload.bin"
+                    end
+                    file = io.open(dir .. "/" .. filename, "w")
+                    if not file then
+                        ngx.status = 500
+                        ngx.header["content-type"] = "application/json"
+                        ngx.say(cjson.encode({ error = "file open failed" }))
+                        return
+                    end
+                end
+                file:write(res)
+                size = size + #res
+            end
+        elseif typ == "part_end" then
+            if file then
+                file:close()
+                file = nil
+            end
+        elseif typ == "eof" then
+            break
+        end
+    end
+
+    ngx.status = 201
+    ngx.header["content-type"] = "application/json"
+    ngx.say(cjson.encode({ path = path, file = filename, size = size }))
+end
+
+-- Main entry point
+function _M.handle_upload()
+    local method = ngx.req.get_method()
+    local path = ngx.var.upload_path
+    local args = ngx.req.get_uri_args()
+
+    if not validate_api_key(args) or not validate_path(path) then
+        return
+    end
 
     if method == "GET" then
-        local ok, err = mkdir_p(dir)
-        if not ok then
-            ngx.status = 500
-            ngx.header["content-type"] = "application/json"
-            ngx.say(cjson.encode({ error = "mkdir failed", detail = err }))
-            return
-        end
-        local files = list_files(dir)
-        ngx.header["content-type"] = "application/json"
-        ngx.say(cjson.encode({ path = path, files = files }))
-        return
-
+        handle_list_files(path)
     elseif method == "POST" then
-        local form, err = upload:new(4096)
-        if not form then
-            ngx.status = 500
-            ngx.header["content-type"] = "application/json"
-            ngx.say(cjson.encode({ error = "upload init failed", detail = err }))
-            return
-        end
-        form:set_timeout(1000)
-
-        local ok, err = mkdir_p(dir)
-        if not ok then
-            ngx.status = 500
-            ngx.header["content-type"] = "application/json"
-            ngx.say(cjson.encode({ error = "mkdir failed", detail = err }))
-            return
-        end
-
-        local file, filename, size = nil, nil, 0
-
-        while true do
-            local typ, res, err = form:read()
-            if not typ then
-                ngx.status = 400
-                ngx.header["content-type"] = "application/json"
-                ngx.say(cjson.encode({ error = "read failed", detail = err }))
-                return
-            end
-
-            if typ == "header" then
-                local name, value = res[1], res[2]
-                if name == "Content-Disposition" then
-                    local m = ngx.re.match(value, "filename=\"?([^\";]+)\"?", "jo")
-                    if m then
-                        filename = m[1]
-                    end
-                end
-            elseif typ == "body" then
-                if res then
-                    if not file then
-                        filename = filename and filename:gsub("^.*[\\/]", "") or "upload.bin"
-                        if not filename:match("^[A-Za-z0-9_%-.]+$") then
-                            filename = "upload.bin"
-                        end
-                        file = io.open(dir .. "/" .. filename, "w")
-                        if not file then
-                            ngx.status = 500
-                            ngx.header["content-type"] = "application/json"
-                            ngx.say(cjson.encode({ error = "file open failed" }))
-                            return
-                        end
-                    end
-                    file:write(res)
-                    size = size + #res
-                end
-            elseif typ == "part_end" then
-                if file then
-                    file:close();
-                    file = nil
-                end
-            elseif typ == "eof" then
-                break
-            end
-        end
-
-        ngx.status = 201
-        ngx.header["content-type"] = "application/json"
-        ngx.say(cjson.encode({ path = path, file = filename, size = size }))
-        return
+        handle_upload_file(path)
     else
         ngx.status = 405
         ngx.header["Allow"] = "GET, POST"

@@ -5,6 +5,7 @@
         "cjson",
         "dylib",
         "dynamiclib",
+        "fpath",
         "functioncall",
         "functiondef",
         "gaussblur",

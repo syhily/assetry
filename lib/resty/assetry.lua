@@ -20,7 +20,7 @@ local _M = {}
 
 local function getenv_number(var_name, default)
     local v = os.getenv(var_name)
-    return v and tonumber(v) or default
+    return v and to_number(v) or default
 end
 
 local function getenv_string(var_name, default)

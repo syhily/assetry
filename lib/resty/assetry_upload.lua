@@ -34,14 +34,14 @@ local function list_files_sha(dir)
     -- Check if directory exists
     local f = io.open(dir, "r")
     if not f then
-        return files -- return empty list if dir doesn't exist
+        return cjson.empty_array
     end
     f:close()
 
     -- Iterate over entries
     local p = io.popen("ls -A \"" .. dir .. "\" 2>/dev/null")
     if not p then
-        return files
+        return cjson.empty_array
     end
 
     for entry in p:lines() do

@@ -63,6 +63,10 @@ local function list_files_sha(dir)
     end
 
     p:close()
+    
+    if #files == 0 then
+        return cjson.empty_array
+    end
     return files
 end
 

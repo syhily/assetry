@@ -29,7 +29,7 @@ It supports resizing, cropping, rounding, format conversion, and more, using **l
 ### 1. Clone & Build
 
 ```bash
-git clone https://github.com/yourusername/assetry.git
+git clone https://github.com/syhily/assetry.git
 cd assetry
 docker-compose build
 ```
